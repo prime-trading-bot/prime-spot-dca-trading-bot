@@ -86,7 +86,7 @@ Prime Spot DCA Trading Bot solves this by enforcing **rule-based automation** â€
 Use the official auto-installer:
 
 ```bash
-curl -sO https://raw.githubusercontent.com/prime-trading-bot/prime-spot-dca-trading-bot/main/install.sh && bash install.sh
+curl -sO https://raw.githubusercontent.com/prime-trading-bot/prime-spot-dca-trading-bot/main/install.sh  | sudo bash
 ```
 For detailed guides (Windows, Amazon EC2, GUI usageâ€¦), visit the official documentation.
 
