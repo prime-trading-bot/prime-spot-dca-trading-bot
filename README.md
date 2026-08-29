@@ -87,3 +87,38 @@ Use the official auto-installer:
 
 ```bash
 curl -sO https://raw.githubusercontent.com/prime-trading-bot/prime-spot-dca-trading-bot/main/install.sh && bash install.sh
+```
+For detailed guides (Windows, Amazon EC2, GUI usage…), visit the official documentation.
+
+---
+
+## Who Is This For?
+
+Spot traders who want consistent, rule-based execution
+People tired of monthly subscription bots
+Traders who value privacy and full control of their API keys
+Both beginners (auto-installer) and advanced users (full manual control)
+
+---
+
+## Important Notes
+
+This is a software tool only. It does not provide investment advice or guarantee profits.
+Trading involves significant risk. Only trade with capital you can afford to lose.
+Always start with small size and test thoroughly (including Testnet).
+
+---
+
+## Official Links
+
+Website: [https://primetradingbot.com](https://primetradingbot.com)
+
+Product page: [https://primetradingbot.com/spotdca.html](https://primetradingbot.com/spotdca.html)
+
+Support: support@primetradingbot.com
+
+---
+
+  Built by [Prime Trading Bot](https://primetradingbot.com)
+
+  Self-hosted Spot trading bots for disciplined Binance traders.
