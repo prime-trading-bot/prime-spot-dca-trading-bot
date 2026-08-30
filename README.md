@@ -6,12 +6,6 @@
   </p>
 </p>
 
-<p align="center">
-  <a href="https://primetradingbot.com/spotdca.html">
-    <img src="https://img.shields.io/badge/Get%20the%20Bot-Official%20Website-blue?style=for-the-badge" alt="Get the Bot">
-  </a>
-</p>
-
 ---
 
 ## What is Prime Spot DCA Trading Bot?
