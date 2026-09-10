@@ -7,7 +7,7 @@
 
 # 1. Configuration
 VERSION="v5.0"
-BINARY_NAME="Server-Linux.bin"
+BINARY_NAME="server_v5.bin"
 DOWNLOAD_URL="https://github.com/prime-trading-bot/prime-spot-dca-trading-bot/releases/download/$VERSION/$BINARY_NAME"
 INSTALL_DIR="/opt/Prime-Spot-DCA-Trading-Bot"
 SERVICE_NAME="primespotdca"
