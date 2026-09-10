@@ -107,7 +107,7 @@ Always start with small size and test thoroughly (including Testnet).
 
 Website: [https://primetradingbot.com](https://primetradingbot.com)
 
-Product page: [https://primetradingbot.com/spotdca.html](https://primetradingbot.com/spotdca.html)
+Product page: [https://primetradingbot.com/spotdca](https://primetradingbot.com/spotdca)
 
 Support: support@primetradingbot.com
 
