@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# ==========================================
-# Prime Trading Bot - Auto Installer (Universal)
+# =======================================================
+# Prime Spot DCA Trading Bot - Auto Installer (Universal)
 # Version: 1.0
-# ==========================================
+# =======================================================
 
 # 1. Configuration
 VERSION="v5.0"
