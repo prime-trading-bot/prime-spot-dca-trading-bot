@@ -53,7 +53,7 @@ if [ ! -f "$INSTALL_DIR/server.bin" ]; then
     exit 1
 fi
 
-# 7. Set Permissions & Ownership (Quan trọng)
+# 7. Set Permissions & Ownership
 echo ">>>Setting permissions for user $REAL_USER..."
 chmod +x "$INSTALL_DIR/server.bin"
 chown -R $REAL_USER:$REAL_GROUP $INSTALL_DIR
