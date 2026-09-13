@@ -2,7 +2,7 @@
 
 # =======================================================
 # Prime Spot DCA Trading Bot - Auto Installer (Universal)
-# Version: 1.1
+# Version: 1.2
 # =======================================================
 
 # 1. Configuration
@@ -63,6 +63,18 @@ fi
 # 6. Setup Directory & Download
 echo ">>>Creating directory at $INSTALL_DIR..."
 mkdir -p $INSTALL_DIR
+
+# FIX (Silent Update Failure): Linux refuses to overwrite (truncate) a binary file while it is
+# currently being executed - attempting to do so returns "Text file busy" (ETXTBSY). Since this
+# script always re-downloads server.bin in place (see the NOTE below), re-running it while the
+# bot is still running as the "$SERVICE_NAME" service would make the curl download below FAIL
+# silently: curl errors out, but the OLD server.bin file is left completely untouched (so the
+# "if [ ! -f ... ]" existence check further down still passes), and the script happily continues
+# on to chown/chmod/restart the UNCHANGED old binary and reports "INSTALLATION SUCCESSFUL!" even
+# though nothing was actually updated. Stopping the service first frees the file for writing.
+# `|| true` makes this safe on a first-time install, when the service doesn't exist yet.
+echo ">>>Stopping existing service (if running) so the binary can be safely updated..."
+systemctl stop $SERVICE_NAME 2>/dev/null || true
 
 # NOTE: the binary is deliberately re-downloaded (overwritten) every time this script runs.
 # Re-running this installer is the intended way to update the bot to the latest build at
