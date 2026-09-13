@@ -2,7 +2,7 @@
 
 # =======================================================
 # Prime Spot DCA Trading Bot - Auto Installer (Universal)
-# Version: 1.0
+# Version: 1.1
 # =======================================================
 
 # 1. Configuration
@@ -28,23 +28,45 @@ echo "Starting Installation ($VERSION)..."
 echo "Installing for User: $REAL_USER"
 echo "=================================================="
 
-# 4. Install Dependencies
-echo ">>>Installing curl & ufw..."
-apt-get update -qq >/dev/null
-apt-get install -y curl ufw >/dev/null
+# 4. Detect OS family & Install Dependencies
+# Supports both Debian/Ubuntu (apt) and RedHat/Amazon Linux/CentOS (yum) so the same script
+# works on EC2 as well as other cloud providers, not just Ubuntu-based images.
+if command -v apt-get >/dev/null 2>&1; then
+    OS_FAMILY="debian"
+    echo ">>>Detected Debian/Ubuntu family OS. Installing curl & ufw..."
+    apt-get update -qq >/dev/null
+    apt-get install -y curl ufw >/dev/null
+elif command -v yum >/dev/null 2>&1; then
+    OS_FAMILY="redhat"
+    echo ">>>Detected RedHat/Amazon Linux/CentOS family OS. Installing curl..."
+    yum update -y -q >/dev/null 2>&1
+    yum install -y curl >/dev/null 2>&1
+    # These distros typically rely on the cloud provider's Security Groups for port
+    # management rather than a local firewall daemon, so ufw is skipped here.
+    echo ">>>Skipping ufw setup - please make sure port 8765 is open in your Cloud Firewall/Security Group."
+else
+    OS_FAMILY="unknown"
+    echo "Warning: Neither apt-get nor yum was found. Skipping automatic dependency install."
+    echo "         Please make sure 'curl' is installed manually before continuing."
+fi
 
-# 5. Configure Firewall
-echo ">>>Configuring Firewall..."
-ufw allow 22/tcp >/dev/null 2>&1
-ufw allow 8765/tcp >/dev/null 2>&1
-if ! ufw status | grep -q "Status: active"; then
-    echo "y" | ufw enable >/dev/null 2>&1
+# 5. Configure Firewall (Debian/Ubuntu only - see step 4 for RedHat family)
+if [ "$OS_FAMILY" = "debian" ]; then
+    echo ">>>Configuring Firewall..."
+    ufw allow 22/tcp >/dev/null 2>&1
+    ufw allow 8765/tcp >/dev/null 2>&1
+    if ! ufw status | grep -q "Status: active"; then
+        echo "y" | ufw enable >/dev/null 2>&1
+    fi
 fi
 
 # 6. Setup Directory & Download
 echo ">>>Creating directory at $INSTALL_DIR..."
 mkdir -p $INSTALL_DIR
 
+# NOTE: the binary is deliberately re-downloaded (overwritten) every time this script runs.
+# Re-running this installer is the intended way to update the bot to the latest build at
+# $DOWNLOAD_URL - it is not a bug, and should not be changed to "skip if already present".
 echo ">>>Downloading Server Binary..."
 curl -L --progress-bar "$DOWNLOAD_URL" -o "$INSTALL_DIR/server.bin"
 
@@ -75,6 +97,7 @@ Restart=always
 RestartSec=5
 StandardOutput=append:$INSTALL_DIR/server.log
 StandardError=append:$INSTALL_DIR/server.error.log
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
