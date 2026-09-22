@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # =======================================================
-# Prime Spot DCA Trading Bot - Auto Installer (Universal)
-# Version: 1.2
+# Prime Spot DCA Trading Bot - Auto Installer (Standalone)
+# Version: 1.4 (Updated for Nuitka Standalone & Port Cleanup)
 # =======================================================
 
 # 1. Configuration
 VERSION="v5.0"
-BINARY_NAME="server_v5.bin"
-DOWNLOAD_URL="https://github.com/prime-trading-bot/prime-spot-dca-trading-bot/releases/download/$VERSION/$BINARY_NAME"
+ARCHIVE_NAME="server_v5.tar.xz"
+DOWNLOAD_URL="https://github.com/prime-trading-bot/prime-spot-dca-trading-bot/releases/download/$VERSION/$ARCHIVE_NAME"
 INSTALL_DIR="/opt/Prime-Spot-DCA-Trading-Bot"
+APP_DIR="$INSTALL_DIR/server"
 SERVICE_NAME="primespotdca"
 
 # 2. Check for Root (Required for installation steps)
@@ -29,28 +30,24 @@ echo "Installing for User: $REAL_USER"
 echo "=================================================="
 
 # 4. Detect OS family & Install Dependencies
-# Supports both Debian/Ubuntu (apt) and RedHat/Amazon Linux/CentOS (yum) so the same script
-# works on EC2 as well as other cloud providers, not just Ubuntu-based images.
 if command -v apt-get >/dev/null 2>&1; then
     OS_FAMILY="debian"
-    echo ">>>Detected Debian/Ubuntu family OS. Installing curl & ufw..."
+    echo ">>>Detected Debian/Ubuntu family OS. Installing curl, ufw, tar, xz-utils, psmisc..."
     apt-get update -qq >/dev/null
-    apt-get install -y curl ufw >/dev/null
+    apt-get install -y curl ufw tar xz-utils psmisc >/dev/null
 elif command -v yum >/dev/null 2>&1; then
     OS_FAMILY="redhat"
-    echo ">>>Detected RedHat/Amazon Linux/CentOS family OS. Installing curl..."
+    echo ">>>Detected RedHat/Amazon Linux/CentOS family OS. Installing curl, tar, xz, psmisc..."
     yum update -y -q >/dev/null 2>&1
-    yum install -y curl >/dev/null 2>&1
-    # These distros typically rely on the cloud provider's Security Groups for port
-    # management rather than a local firewall daemon, so ufw is skipped here.
+    yum install -y curl tar xz psmisc >/dev/null 2>&1
     echo ">>>Skipping ufw setup - please make sure port 8765 is open in your Cloud Firewall/Security Group."
 else
     OS_FAMILY="unknown"
     echo "Warning: Neither apt-get nor yum was found. Skipping automatic dependency install."
-    echo "         Please make sure 'curl' is installed manually before continuing."
+    echo "         Please make sure 'curl', 'tar', 'xz', and 'fuser' (psmisc) are installed manually before continuing."
 fi
 
-# 5. Configure Firewall (Debian/Ubuntu only - see step 4 for RedHat family)
+# 5. Configure Firewall (Debian/Ubuntu only)
 if [ "$OS_FAMILY" = "debian" ]; then
     echo ">>>Configuring Firewall..."
     ufw allow 22/tcp >/dev/null 2>&1
@@ -60,39 +57,40 @@ if [ "$OS_FAMILY" = "debian" ]; then
     fi
 fi
 
-# 6. Setup Directory & Download
-echo ">>>Creating directory at $INSTALL_DIR..."
-mkdir -p $INSTALL_DIR
+# 6. Setup Directory & Clean up Old Processes
+echo ">>>Creating base directory at $INSTALL_DIR..."
+mkdir -p "$INSTALL_DIR"
 
-# FIX (Silent Update Failure): Linux refuses to overwrite (truncate) a binary file while it is
-# currently being executed - attempting to do so returns "Text file busy" (ETXTBSY). Since this
-# script always re-downloads server.bin in place (see the NOTE below), re-running it while the
-# bot is still running as the "$SERVICE_NAME" service would make the curl download below FAIL
-# silently: curl errors out, but the OLD server.bin file is left completely untouched (so the
-# "if [ ! -f ... ]" existence check further down still passes), and the script happily continues
-# on to chown/chmod/restart the UNCHANGED old binary and reports "INSTALLATION SUCCESSFUL!" even
-# though nothing was actually updated. Stopping the service first frees the file for writing.
-# `|| true` makes this safe on a first-time install, when the service doesn't exist yet.
-echo ">>>Stopping existing service (if running) so the binary can be safely updated..."
+echo ">>>Stopping existing service (if running)..."
 systemctl stop $SERVICE_NAME 2>/dev/null || true
 
-# NOTE: the binary is deliberately re-downloaded (overwritten) every time this script runs.
-# Re-running this installer is the intended way to update the bot to the latest build at
-# $DOWNLOAD_URL - it is not a bug, and should not be changed to "skip if already present".
-echo ">>>Downloading Server Binary..."
-curl -L --progress-bar "$DOWNLOAD_URL" -o "$INSTALL_DIR/server.bin"
+echo ">>>Freeing up port 8765 (killing zombie processes if any)..."
+fuser -k -9 8765/tcp >/dev/null 2>&1 || true
+sleep 1
 
-if [ ! -f "$INSTALL_DIR/server.bin" ]; then
+# 7. Download
+echo ">>>Downloading Server Archive ($ARCHIVE_NAME)..."
+curl -L --progress-bar "$DOWNLOAD_URL" -o "$INSTALL_DIR/$ARCHIVE_NAME"
+
+if [ ! -f "$INSTALL_DIR/$ARCHIVE_NAME" ]; then
     echo "Error: Download failed. Check link or internet."
     exit 1
 fi
 
-# 7. Set Permissions & Ownership
-echo ">>>Setting permissions for user $REAL_USER..."
-chmod +x "$INSTALL_DIR/server.bin"
-chown -R $REAL_USER:$REAL_GROUP $INSTALL_DIR
+# 8. Extract Archive
+echo ">>>Extracting files into $APP_DIR..."
+rm -rf "$APP_DIR"
+mkdir -p "$APP_DIR"
 
-# 8. Create Systemd Service
+tar -xf "$INSTALL_DIR/$ARCHIVE_NAME" -C "$APP_DIR" --strip-components=1
+rm -f "$INSTALL_DIR/$ARCHIVE_NAME"
+
+# 9. Set Permissions & Ownership
+echo ">>>Setting executable permissions and ownership for user $REAL_USER..."
+chmod +x "$APP_DIR/server.bin"
+chown -R $REAL_USER:$REAL_GROUP "$INSTALL_DIR"
+
+# 10. Create Systemd Service
 echo ">>>Creating Service..."
 cat <<EOF > /etc/systemd/system/$SERVICE_NAME.service
 [Unit]
@@ -103,24 +101,24 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=$REAL_USER
-WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/server.bin
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/server.bin
 Restart=always
 RestartSec=5
-StandardOutput=append:$INSTALL_DIR/server.log
-StandardError=append:$INSTALL_DIR/server.error.log
+StandardOutput=append:$APP_DIR/server.log
+StandardError=append:$APP_DIR/server.error.log
 NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 9. Start Service
+# 11. Start Service
 systemctl daemon-reload
 systemctl enable $SERVICE_NAME >/dev/null 2>&1
 systemctl restart $SERVICE_NAME
 
-# 10. Final Check
+# 12. Final Check
 sleep 2
 IS_ACTIVE=$(systemctl is-active $SERVICE_NAME)
 
@@ -131,10 +129,10 @@ if [ "$IS_ACTIVE" == "active" ]; then
     echo "Server IP: $SERVER_IP"
     echo "Port: 8765"
     echo ""
-    echo "View Log:  tail -f $INSTALL_DIR/server.log"
+    echo "View Log:  tail -f $APP_DIR/server.log"
     echo "Stop Bot:  sudo systemctl stop $SERVICE_NAME"
 else
     echo "⚠️  WARNING: Bot installed but failed to start."
-    echo "    Check errors: cat $INSTALL_DIR/server.error.log"
+    echo "    Check errors: cat $APP_DIR/server.error.log"
 fi
 echo "=================================================="
