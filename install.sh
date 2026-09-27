@@ -6,7 +6,7 @@
 # =======================================================
 
 # 1. Configuration
-VERSION="v5.0"
+VERSION="v5.1"
 ARCHIVE_NAME="server_v5.tar.xz"
 DOWNLOAD_URL="https://github.com/prime-trading-bot/prime-spot-dca-trading-bot/releases/download/$VERSION/$ARCHIVE_NAME"
 INSTALL_DIR="/opt/Prime-Spot-DCA-Trading-Bot"
