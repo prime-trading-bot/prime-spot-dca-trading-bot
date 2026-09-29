@@ -79,11 +79,34 @@ fi
 
 # 8. Extract Archive
 echo ">>>Extracting files into $APP_DIR..."
+
+# --- BACKUP DATA ---
+BACKUP_DIR="/tmp/dca_bot_backup_$(date +%s)"
+if [ -d "$APP_DIR" ]; then
+    echo ">>>Backing up configuration and state files..."
+    mkdir -p "$BACKUP_DIR"
+    cp "$APP_DIR/config.enc" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/license.sig" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/state_mainnet.json" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/state_testnet.json" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/isolated.json" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/.device_seed" "$BACKUP_DIR/" 2>/dev/null || true
+fi
+# --- END OF BACKUP ---
+
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR"
 
 tar -xf "$INSTALL_DIR/$ARCHIVE_NAME" -C "$APP_DIR" --strip-components=1
 rm -f "$INSTALL_DIR/$ARCHIVE_NAME"
+
+# --- RESTORE DATA ---
+if [ -d "$BACKUP_DIR" ]; then
+    echo ">>>Restoring configuration and state files..."
+    cp "$BACKUP_DIR/"* "$APP_DIR/" 2>/dev/null || true
+    rm -rf "$BACKUP_DIR"
+fi
+# --- END OF RESTORE ---
 
 # 9. Set Permissions & Ownership
 echo ">>>Setting executable permissions and ownership for user $REAL_USER..."
