@@ -1,22 +1,22 @@
 #!/bin/bash
 
 # =======================================================
-# Prime Spot DCA Trading Bot - Auto Installer (Standalone)
-# Version: 1.4 (Updated for Nuitka Standalone & Port Cleanup)
+# Prime Spot Grid Trading Bot - Auto Installer (Standalone)
+# Version: 1.0 (Grid Bot)
 # =======================================================
 
 # 1. Configuration
-VERSION="v5.1"
-ARCHIVE_NAME="server_v5.tar.xz"
-DOWNLOAD_URL="https://github.com/prime-trading-bot/prime-spot-dca-trading-bot/releases/download/$VERSION/$ARCHIVE_NAME"
-INSTALL_DIR="/opt/Prime-Spot-DCA-Trading-Bot"
-APP_DIR="$INSTALL_DIR/server"
-SERVICE_NAME="primespotdca"
+VERSION="V1.0"
+ARCHIVE_NAME="Grid_server.tar.xz"
+DOWNLOAD_URL="https://github.com/prime-trading-bot/prime-spot-grid-trading-bot/releases/download/$VERSION/$ARCHIVE_NAME"
+INSTALL_DIR="/opt/Prime-Spot-Grid-Trading-Bot"
+APP_DIR="$INSTALL_DIR/Grid_server"
+SERVICE_NAME="primespotgrid"
 
 # 2. Check for Root (Required for installation steps)
 if [ "$EUID" -ne 0 ]; then
   echo "Error: You need to run this script with root privileges."
-  echo "Run the command: sudo bash install.sh"
+  echo "Run the command: sudo bash grid-install.sh"
   exit 1
 fi
 
@@ -40,7 +40,7 @@ elif command -v yum >/dev/null 2>&1; then
     echo ">>>Detected RedHat/Amazon Linux/CentOS family OS. Installing curl, tar, xz, psmisc..."
     yum update -y -q >/dev/null 2>&1
     yum install -y curl tar xz psmisc >/dev/null 2>&1
-    echo ">>>Skipping ufw setup - please make sure port 8765 is open in your Cloud Firewall/Security Group."
+    echo ">>>Skipping ufw setup - please make sure port 8764 is open in your Cloud Firewall/Security Group."
 else
     OS_FAMILY="unknown"
     echo "Warning: Neither apt-get nor yum was found. Skipping automatic dependency install."
@@ -51,7 +51,7 @@ fi
 if [ "$OS_FAMILY" = "debian" ]; then
     echo ">>>Configuring Firewall..."
     ufw allow 22/tcp >/dev/null 2>&1
-    ufw allow 8765/tcp >/dev/null 2>&1
+    ufw allow 8764/tcp >/dev/null 2>&1
     if ! ufw status | grep -q "Status: active"; then
         echo "y" | ufw enable >/dev/null 2>&1
     fi
@@ -64,8 +64,8 @@ mkdir -p "$INSTALL_DIR"
 echo ">>>Stopping existing service (if running)..."
 systemctl stop $SERVICE_NAME 2>/dev/null || true
 
-echo ">>>Freeing up port 8765 (killing zombie processes if any)..."
-fuser -k -9 8765/tcp >/dev/null 2>&1 || true
+echo ">>>Freeing up port 8764 (killing zombie processes if any)..."
+fuser -k -9 8764/tcp >/dev/null 2>&1 || true
 sleep 1
 
 # 7. Download
@@ -81,23 +81,30 @@ fi
 echo ">>>Extracting files into $APP_DIR..."
 
 # --- BACKUP DATA ---
-BACKUP_DIR="/tmp/dca_bot_backup_$(date +%s)"
+BACKUP_DIR="/tmp/grid_bot_backup_$(date +%s)"
 if [ -d "$APP_DIR" ]; then
     echo ">>>Backing up configuration and state files..."
     mkdir -p "$BACKUP_DIR"
     
-    cp "$APP_DIR/config.enc" "$BACKUP_DIR/" 2>/dev/null || true
-    cp "$APP_DIR/license.sig" "$BACKUP_DIR/" 2>/dev/null || true
-    cp "$APP_DIR/state_mainnet.json" "$BACKUP_DIR/" 2>/dev/null || true
-    cp "$APP_DIR/state_testnet.json" "$BACKUP_DIR/" 2>/dev/null || true
-    cp "$APP_DIR/isolated.json" "$BACKUP_DIR/" 2>/dev/null || true
+	cp "$APP_DIR/grid_config.enc" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/grid_server_state.json" "$BACKUP_DIR/" 2>/dev/null || true
+    # FIX BUG (total config/state loss on reinstall): pre-redesign installs kept EVERYTHING
+    # (API key/secret + per-symbol grid params + runtime state) in this one combined, encrypted
+    # file instead of the two above. If the currently-installed release predates the config/state
+    # split, grid_config.enc / grid_server_state.json above don't exist yet and the two `cp`
+    # lines above silently no-op -- so grid_server_state.enc, which is the ONLY copy of the
+    # user's actual running configuration in that case, MUST also be backed up here, or it is
+    # permanently deleted by `rm -rf "$APP_DIR"` below with nothing to restore from.
+    cp "$APP_DIR/grid_server_state.enc" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/grid_license.sig" "$BACKUP_DIR/" 2>/dev/null || true
     cp "$APP_DIR/.device_seed" "$BACKUP_DIR/" 2>/dev/null || true
     
-    cp "$APP_DIR/trade_history.json" "$BACKUP_DIR/" 2>/dev/null || true
-    cp "$APP_DIR"/trades*.log* "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/grid_server_cert.pem" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/grid_server_key.pem" "$BACKUP_DIR/" 2>/dev/null || true
     
-    cp "$APP_DIR/dca_server_cert.pem" "$BACKUP_DIR/" 2>/dev/null || true
-    cp "$APP_DIR/dca_server_key.pem" "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR"/grid_server.log* "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR"/trades*.log "$BACKUP_DIR/" 2>/dev/null || true
+    cp "$APP_DIR/trades_log_index.txt" "$BACKUP_DIR/" 2>/dev/null || true
 fi
 # --- END OF BACKUP ---
 
@@ -117,14 +124,14 @@ fi
 
 # 9. Set Permissions & Ownership
 echo ">>>Setting executable permissions and ownership for user $REAL_USER..."
-chmod +x "$APP_DIR/server.bin"
+chmod +x "$APP_DIR/GridServer.bin"
 chown -R $REAL_USER:$REAL_GROUP "$INSTALL_DIR"
 
 # 10. Create Systemd Service
 echo ">>>Creating Service..."
 cat <<EOF > /etc/systemd/system/$SERVICE_NAME.service
 [Unit]
-Description=Prime Trading Bot Server
+Description=Prime Grid Trading Bot Server
 After=network-online.target
 Wants=network-online.target
 
@@ -132,7 +139,7 @@ Wants=network-online.target
 Type=simple
 User=$REAL_USER
 WorkingDirectory=$APP_DIR
-ExecStart=$APP_DIR/server.bin
+ExecStart=$APP_DIR/Grid_server.bin
 Restart=always
 RestartSec=5
 StandardOutput=append:$APP_DIR/server.log
@@ -157,7 +164,7 @@ if [ "$IS_ACTIVE" == "active" ]; then
     SERVER_IP=$(curl -s ifconfig.me)
     echo "INSTALLATION SUCCESSFUL!"
     echo "Server IP: $SERVER_IP"
-    echo "Port: 8765"
+    echo "Port: 8764"
     echo ""
     echo "View Log:  tail -f $APP_DIR/server.log"
     echo "Stop Bot:  sudo systemctl stop $SERVICE_NAME"
